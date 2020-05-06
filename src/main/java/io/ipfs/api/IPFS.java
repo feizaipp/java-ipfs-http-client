@@ -99,8 +99,26 @@ public class IPFS {
         return add(Collections.singletonList(file), wrap, hashOnly);
     }
 
+    public List<MerkleNode> add(NamedStreamable file, boolean wrap, boolean hashOnly, boolean pin) throws IOException {
+        return add(Collections.singletonList(file), wrap, hashOnly, pin);
+    }
+
     public List<MerkleNode> add(List<NamedStreamable> files, boolean wrap, boolean hashOnly) throws IOException {
         Multipart m = new Multipart(protocol + "://" + host + ":" + port + version + "add?stream-channels=true&w="+wrap + "&n="+hashOnly, "UTF-8");
+        for (NamedStreamable file: files) {
+            if (file.isDirectory()) {
+                m.addSubtree(Paths.get(""), file);
+            } else
+                m.addFilePart("file", Paths.get(""), file);
+        };
+        String res = m.finish();
+        return JSONParser.parseStream(res).stream()
+                .map(x -> MerkleNode.fromJSON((Map<String, Object>) x))
+                .collect(Collectors.toList());
+    }
+
+    public List<MerkleNode> add(List<NamedStreamable> files, boolean wrap, boolean hashOnly, boolean pin) throws IOException {
+        Multipart m = new Multipart(protocol + "://" + host + ":" + port + version + "add?stream-channels=true&w="+wrap + "&n="+hashOnly + "&pin="+pin, "UTF-8");
         for (NamedStreamable file: files) {
             if (file.isDirectory()) {
                 m.addSubtree(Paths.get(""), file);
@@ -137,6 +155,21 @@ public class IPFS {
 
     public InputStream catStream(Multihash hash) throws IOException {
         return retrieveStream("cat?arg=" + hash);
+    }
+
+    public InputStream download_file(Multihash hash) throws IOException {
+        String path = "get?arg=" + hash;
+        URL target = new URL(protocol, host, port, version + path);
+        HttpURLConnection conn = (HttpURLConnection) target.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("Content-Type", "application/json");
+
+        try {
+            InputStream in = conn.getInputStream();
+            return in;
+        } catch (ConnectException e) {
+            throw new RuntimeException("Couldn't connect to IPFS daemon at "+target+"\n Is IPFS running?");
+        }
     }
 
     public List<Multihash> refs(Multihash hash, boolean recursive) throws IOException {
@@ -245,6 +278,10 @@ public class IPFS {
     public class Repo {
         public Object gc() throws IOException {
             return retrieveAndParse("repo/gc");
+        }
+
+        public Map stat() throws IOException {
+            return retrieveMap("repo/stat");
         }
     }
 

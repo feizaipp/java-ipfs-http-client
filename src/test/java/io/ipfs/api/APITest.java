@@ -743,4 +743,33 @@ public class APITest {
         r.nextBytes(res);
         return res;
     }
+
+    @Test
+    public void repoStatTest() throws IOException {
+        Map stat = ipfs.repo.stat();
+        System.out.println(stat.toString());
+    }
+
+    @Test
+    public void addPin(boolean pin) throws IOException {
+        NamedStreamable dir = new NamedStreamable.FileWrapper(new File("java"));
+        List<MerkleNode> add = ipfs.add(dir, false, false , false);
+        MerkleNode addResult = add.get(add.size() - 1);
+        System.out.println(addResult.toString());
+    }
+
+    @Test
+    public void downloadFile() throws IOException {
+        String hashStr = "QmSy4Ecxcp8NRTsaieDRu979hxsV7p8aWoCr7UEfUMFN95";
+        Multihash hash = Multihash.fromBase58(hashStr);
+        InputStream is = ipfs.download_file(hash);
+        FileOutputStream file = new FileOutputStream(new File("/Users/z11/work/ipfs/test/1"));
+        byte[] buf = new byte[4096];
+        int r;
+        while ((r = is.read(buf)) >= 0)
+            file.write(buf, 0, r);
+
+        file.close();
+        is.close();
+    }
 }
